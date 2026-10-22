@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>VEIL CITY — Prototype 1.0</title>
+<title>VEIL CITY — Night District 1.1</title>
 <style>
 :root{color-scheme:dark}
 *{box-sizing:border-box}
@@ -33,16 +33,16 @@ button:hover{background:#fff}
 <body>
 <div id="game"></div>
 <div id="hud">
-  <div id="brand" class="panel">VEIL CITY<small>OPEN-WORLD PROTOTYPE 1.0</small></div>
+  <div id="brand" class="panel">VEIL CITY<small>OPEN-WORLD PROTOTYPE 1.1</small></div>
   <div id="stats" class="panel">РЕЖИМ: <strong id="mode">ГОРОД</strong><br>СКОРОСТЬ: <strong id="speed">0</strong><br>ПОИСК: <strong id="wanted">☆☆☆☆☆</strong></div>
-  <div id="help" class="panel">W A S D — движение<br>МЫШЬ — обзор · Shift — бег<br>Esc — освободить мышь</div>
+  <div id="help" class="panel">W A S D / стрелки — движение<br>Shift — бег · мышь — обзор<br>Клик по игре — вернуть управление</div>
   <div id="crosshair"></div><div id="toast"></div>
 </div>
 <div id="overlay">
  <div id="card">
   <div class="eyebrow">WELCOME TO THE CITY</div>
   <h1>VEIL CITY</h1>
-  <p>Ночной город для исследования. Это новая стабильная основа: движение, камера от третьего лица, здания с коллизиями, уличные фонари и машины.</p>
+  <p>Большой ночной город: улучшенное управление, лицо и волосы персонажа, движущийся трафик, светофоры, дорожные знаки, фактурный асфальт и редкие городские животные.</p>
   <button id="start">НАЧАТЬ ИГРУ</button>
   <div class="note">Для лучшего управления играй на компьютере. Нажми кнопку, затем используй W A S D.</div>
  </div>
@@ -91,7 +91,8 @@ function collides(x,z,r=.48){
 // Ground and road grid
 box(320,.4,320,mat(0x111820),0,-.35,0,{castShadow:false});
 const roadWidth=14, blockStep=36;
-for(let i=-4;i<=4;i++){
+// Large playable district: roads span 13 x 13 blocks.
+for(let i=-6;i<=6;i++){
  const p=i*blockStep;
  box(roadWidth,.08,300,roadMat,p,.02,0,{castShadow:false});
  box(300,.08,roadWidth,roadMat,0,.025,p,{castShadow:false});
@@ -106,10 +107,88 @@ for(let i=-4;i<=4;i++){
   box(5,.025,.14,lineMat,t,.085,p,{castShadow:false});
  }
 }
+// Asphalt grain, patch repairs, manholes and occasional road markings.
+const asphaltPatchMat=[mat(0x30343a),mat(0x282d33),mat(0x383b3e)];
+for(let i=0;i<1200;i++){
+ const x=(rand()-.5)*430, z=(rand()-.5)*430;
+ // Keep speckles low and thin, like aggregate embedded in the asphalt.
+ const speck=box(.12+rand()*.28,.012,.1+rand()*.24,asphaltPatchMat[Math.floor(rand()*asphaltPatchMat.length)],x,.075,z,{castShadow:false});
+}
+for(let i=0;i<85;i++){
+ const horizontal=rand()>.5, p=(rand()-.5)*420, q=(Math.floor(rand()*13)-6)*blockStep;
+ const patch=box(horizontal?5+rand()*5:.08,.018,horizontal?.08:5+rand()*5,mat(0x151a20),horizontal?p:q,.078,horizontal?q:p,{castShadow:false});
+}
+// Traffic signals at selected intersections.
+const signalHousing=mat(0x171d22,.55,.35), signalPole=mat(0x343a3f,.5,.5);
+const signalLamp=[0xff302b,0xffbf38,0x39df79].map(c=>new THREE.MeshBasicMaterial({color:c}));
+const trafficSignals=[];
+for(let gx=-6;gx<=6;gx+=2) for(let gz=-6;gz<=6;gz+=2){
+ const x=gx*blockStep+9.4,z=gz*blockStep+9.4;
+ box(.18,4.5,.18,signalPole,x,2.25,z);
+ box(.42,1.25,.32,signalHousing,x,4.55,z);
+ const bulbs=[];
+ for(let i=0;i<3;i++){
+  const b=new THREE.Mesh(new THREE.SphereGeometry(.105,8,6),signalLamp[i]);
+  b.position.set(x,4.95-i*.38,z+.18);scene.add(b);bulbs.push(b);
+ }
+ trafficSignals.push({bulbs,phase:rand()*20});
+}
+// Street signs and tall advertising poles.
+const signMat=mat(0x174d56,.6,.15), signTextMat=new THREE.MeshBasicMaterial({color:0xe6f1e9});
+const signCanvas=document.createElement('canvas');signCanvas.width=512;signCanvas.height=128;
+const signCtx=signCanvas.getContext('2d');
+signCtx.fillStyle='#174d56';signCtx.fillRect(0,0,512,128);
+signCtx.strokeStyle='#d4e5df';signCtx.lineWidth=5;signCtx.strokeRect(7,7,498,114);
+signCtx.fillStyle='#f0f5ed';signCtx.font='bold 43px Arial';signCtx.textAlign='center';signCtx.fillText('VEIL AVE  •  DISTRICT 07',256,78);
+const signTexture=new THREE.CanvasTexture(signCanvas);
+const signFaceMat=new THREE.MeshBasicMaterial({map:signTexture});
+for(let i=0;i<42;i++){
+ const x=(Math.floor(rand()*13)-6)*blockStep+(rand()>.5?9:-9);
+ const z=(Math.floor(rand()*13)-6)*blockStep+(rand()>.5?9:-9);
+ box(.15,5,.15,signalPole,x,2.5,z);
+ box(3.2,.85,.12,signMat,x,4.6,z);
+ const face=new THREE.Mesh(new THREE.PlaneGeometry(3.05,.72),signFaceMat);
+ face.position.set(x,4.6,z+.071);scene.add(face);
+}
+// Rare city wildlife: a few cats and pigeons, far from the player start.
+const wildlife=[];
+function makeCat(x,z){
+ const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
+ const fur=mat(0x6b6257), dark=mat(0x292725), eye=new THREE.MeshBasicMaterial({color:0xb9c66b});
+ const body=new THREE.Mesh(new THREE.SphereGeometry(.35,10,8),fur);body.scale.set(1.25,.65,.65);body.position.y=.35;g.add(body);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.2,10,8),fur);head.position.set(0,.48,.35);g.add(head);
+ for(const s of [-1,1]){
+  const ear=new THREE.Mesh(new THREE.ConeGeometry(.075,.18,5),fur);ear.position.set(s*.12,.65,.36);g.add(ear);
+  const e=new THREE.Mesh(new THREE.SphereGeometry(.025,6,5),eye);e.position.set(s*.075,.5,.52);g.add(e);
+  const leg=new THREE.Mesh(new THREE.CylinderGeometry(.035,.04,.24,6),dark);leg.position.set(s*.18,.15,.13);g.add(leg);
+ }
+ const tail=new THREE.Mesh(new THREE.CylinderGeometry(.035,.05,.45,6),fur);tail.position.set(0,.42,-.35);tail.rotation.x=1.0;g.add(tail);
+ wildlife.push({group:g,kind:'cat',phase:rand()*9,speed:.3+rand()*.5,homeX:x,homeZ:z});
+}
+function makePigeon(x,z){
+ const g=new THREE.Group();g.position.set(x,.1,z);scene.add(g);
+ const feather=mat(0x59646b),wing=mat(0x3d474e),beak=mat(0xc79a53);
+ const body=new THREE.Mesh(new THREE.SphereGeometry(.19,9,7),feather);body.scale.set(1.2,.7,.8);g.add(body);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),feather);head.position.set(0,.08,.17);g.add(head);
+ const bill=new THREE.Mesh(new THREE.ConeGeometry(.035,.12,5),beak);bill.position.set(0,.07,.28);bill.rotation.x=Math.PI/2;g.add(bill);
+ const w1=new THREE.Mesh(new THREE.BoxGeometry(.2,.035,.13),wing);w1.position.set(-.1,.035,0);g.add(w1);
+ const w2=w1.clone();w2.position.x=.1;g.add(w2);
+ wildlife.push({group:g,kind:'pigeon',phase:rand()*8,speed:.15+rand()*.25,homeX:x,homeZ:z});
+}
+for(let i=0;i<5;i++)makeCat((rand()-.5)*360,(rand()-.5)*360);
+for(let i=0;i<15;i++)makePigeon((rand()-.5)*300,(rand()-.5)*300);
+// Moving traffic, kept on road lanes with deterministic, looping routes.
+const traffic=[];
+for(let i=0;i<34;i++){
+ const horizontal=rand()>.5, lane=(rand()>.5?1:-1)*10.5, p=(rand()-.5)*400;
+ const car=makeCar(horizontal?p:lane,horizontal?lane:p,horizontal?Math.PI/2:0,carColors[Math.floor(rand()*carColors.length)]);
+ traffic.push({car,horizontal,lane,dir:rand()>.5?1:-1,speed:5+rand()*8,offset:p});
+}
+
 // Building blocks with matching collision rectangles
 let seed=8391;
 function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
-for(let gx=-4;gx<=4;gx++) for(let gz=-4;gz<=4;gz++){
+for(let gx=-6;gx<=6;gx++) for(let gz=-6;gz<=6;gz++){
  if(gx===0&&gz===0) continue;
  const cx=gx*blockStep, cz=gz*blockStep;
  // Leave streets clear; each block gets 1-3 buildings inside the block.
@@ -148,7 +227,7 @@ for(let gx=-4;gx<=4;gx++) for(let gz=-4;gz<=4;gz++){
 }
 // Street lamps
 const lampMetal=mat(0x252d35,.45,.65), bulbMat=new THREE.MeshBasicMaterial({color:0xffd49a});
-for(let gx=-4;gx<=4;gx++) for(let gz=-4;gz<=4;gz++){
+for(let gx=-6;gx<=6;gx++) for(let gz=-6;gz<=6;gz++){
  const x=gx*blockStep, z=gz*blockStep;
  for(const s of [-1,1]){
   const lx=x+s*10, lz=z+10;
@@ -189,6 +268,17 @@ function limb(w,h,d,material,x,y,z){const m=new THREE.Mesh(new THREE.BoxGeometry
 limb(.62,.78,.32,jacket,0,1.42,0);
 limb(.43,.43,.4,skin,0,2.02,0);
 limb(.45,.13,.43,hair,0,2.27,0);
+// Face details facing the character's forward direction (-Z).
+limb(.075,.045,.025,mat(0xe4d7c5),-.105,2.06,-.198);
+limb(.075,.045,.025,mat(0xe4d7c5),.105,2.06,-.198);
+limb(.035,.035,.018,mat(0x24313a),-.105,2.06,-.216);
+limb(.035,.035,.018,mat(0x24313a),.105,2.06,-.216);
+limb(.035,.09,.035,skin,0,1.99,-.205);
+limb(.11,.025,.025,mat(0x593b37),0,1.925,-.205);
+// Hair fringe and side hair.
+limb(.38,.10,.22,hair,0,2.20,-.13);
+limb(.10,.23,.22,hair,-.205,2.12,.015);
+limb(.10,.23,.22,hair,.205,2.12,.015);
 const armL=limb(.19,.7,.2,jacket,-.43,1.43,0),armR=limb(.19,.7,.2,jacket,.43,1.43,0);
 const legL=limb(.23,.72,.24,pants,-.17,.7,0),legR=limb(.23,.72,.24,pants,.17,.7,0);
 limb(.26,.14,.34,shoes,-.17,.14,.04);limb(.26,.14,.34,shoes,.17,.14,.04);
@@ -205,10 +295,17 @@ document.getElementById('start').addEventListener('click',()=>{
 });
 document.addEventListener('pointerlockchange',()=>{pointerLocked=document.pointerLockElement===renderer.domElement;});
 document.addEventListener('mousemove',e=>{if(pointerLocked){yaw-=e.movementX*.0022;pitch-=e.movementY*.0017;pitch=THREE.MathUtils.clamp(pitch,-.62,.24);}});
-document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['w','a','s','d','shift','arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();keys.add(k);if(k==='escape'&&started)toast('Мышь освобождена — нажми по игре, чтобы захватить снова');});
+function isGameKey(k){return ['w','a','s','d','shift','arrowup','arrowdown','arrowleft','arrowright'].includes(k);}
+document.addEventListener('keydown',e=>{
+ const k=e.key.toLowerCase();
+ if(isGameKey(k)&&started){e.preventDefault();keys.add(k);}
+ if(k==='escape'&&started)toast('Мышь освобождена — нажми по игре, чтобы снова захватить её');
+});
 document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
-renderer.domElement.addEventListener('click',()=>{if(started&&!pointerLocked)renderer.domElement.requestPointerLock?.();});
+renderer.domElement.tabIndex=0;
+renderer.domElement.addEventListener('pointerdown',()=>{renderer.domElement.focus();if(started&&!pointerLocked)renderer.domElement.requestPointerLock?.();});
 window.addEventListener('blur',()=>keys.clear());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)keys.clear();});
 const clock=new THREE.Clock();
 const cameraTarget=new THREE.Vector3();
 function updatePlayer(dt){
@@ -226,7 +323,8 @@ function updatePlayer(dt){
   if(!collides(nx,player.position.z,playerRadius))player.position.x=nx;
   if(!collides(player.position.x,nz,playerRadius))player.position.z=nz;
   const desired=Math.atan2(dx,dz);
-  player.rotation.y=THREE.MathUtils.dampAngle(player.rotation.y,desired,12,dt);
+  let angleDelta=((desired-player.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI;
+  player.rotation.y+=angleDelta*(1-Math.exp(-12*dt));
   walkTime+=dt*(keys.has('shift')?13:9);
   legL.rotation.x=Math.sin(walkTime)*.55;legR.rotation.x=-Math.sin(walkTime)*.55;
   armL.rotation.x=-Math.sin(walkTime)*.42;armR.rotation.x=Math.sin(walkTime)*.42;
@@ -248,8 +346,24 @@ function updateCamera(dt){
  camera.lookAt(target.x,target.y+pitch*4,target.z);
 }
 function updateWorld(dt,t){
- // Subtle light flicker, mostly atmospheric.
- if(Math.floor(t*3)%37===0){/* reserved for future world events */}
+ for(const item of traffic){
+  item.offset+=item.dir*item.speed*dt;
+  if(item.offset>215)item.offset=-215;
+  if(item.offset< -215)item.offset=215;
+  if(item.horizontal){item.car.position.x=item.offset;item.car.position.z=item.lane;item.car.rotation.y=item.dir>0?Math.PI/2:-Math.PI/2;}
+  else{item.car.position.z=item.offset;item.car.position.x=item.lane;item.car.rotation.y=item.dir>0?0:Math.PI;}
+ }
+ for(const sig of trafficSignals){
+  const phase=(t+sig.phase)%8;
+  const active=phase<3?0:phase<3.7?1:3;
+  sig.bulbs.forEach((b,i)=>{b.visible=(i===active)||(active===3&&i===2);});
+ }
+ for(const animal of wildlife){
+  const a=t*animal.speed+animal.phase;
+  animal.group.position.x=animal.homeX+Math.sin(a)*2.4;
+  animal.group.position.z=animal.homeZ+Math.cos(a*.7)*2.4;
+  animal.group.rotation.y=Math.atan2(Math.cos(a)*animal.speed,-Math.sin(a)*animal.speed);
+ }
 }
 function animate(){
  requestAnimationFrame(animate);
